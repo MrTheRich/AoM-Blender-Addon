@@ -24,7 +24,8 @@ bl_info = {
     "blender": (2, 7, 5),
     "warning": "",
     "location": "File > Import-Export",
-    "tracker_url": "mailto:mrtherich@gmail.com",
+    "wiki_url": "https://github.com/MrTheRich/AoM-Blender-Addon/wiki",
+    "tracker_url": "https://github.com/MrTheRich/AoM-Blender-Addon/issues",
     "support": "OFFICIAL",
     "category": "Import-Export"
     }
@@ -37,7 +38,41 @@ from . import brg_import, brg_export, brg_util
 from importlib import reload
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
+from bpy.types import Operator, AddonPreferences
+from bpy.props import StringProperty, IntProperty, BoolProperty
 
+class AoMPreferences(AddonPreferences):
+    bl_idname = __name__
+
+    aom_path = StringProperty(
+            name="Path to Age of Mythology Installation",
+            subtype='FILE_PATH',
+            )
+    auto_import = BoolProperty(
+            name="Autmatically import images from AoM",
+            default=True,
+            )
+    comp_path = StringProperty(
+            name="Path to TextureCompiler.exe. (v2)",
+            subtype='FILE_PATH',
+            )
+    glob_tex = BoolProperty(
+            name="Default save converted textures globally. Default \"\\[AoM]\\Textures\\Converted\".",
+            default=True,
+            )
+    tex_path = StringProperty(
+            name="Path for global texture conversion storage.",
+            subtype='FILE_PATH',
+            )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text="Edit here your preferences to use the addon to it's fullest potential.")
+        layout.prop(self, "auto_import")
+        layout.prop(self, "aom_path")
+        layout.prop(self, "comp_path")
+        layout.prop(self, "glob_tex")
+        layout.prop(self, "tex_path")
 
 #import function
 class IMPORT_BRG(bpy.types.Operator, ImportHelper):
@@ -53,8 +88,9 @@ class IMPORT_BRG(bpy.types.Operator, ImportHelper):
         maxlen=1024, default="")
 
     def execute(self, context):
-
-        brg_import.start(context, self.filepath)
+        preferences = context.user_preferences
+        addon_prefs = preferences.addons[__name__].preferences
+        brg_import.start(context, self.filepath, addon_prefs)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -75,7 +111,9 @@ class EXPORT_BRG(bpy.types.Operator, ExportHelper):
         maxlen=1024, default="")
 
     def execute(self, context):
-        brg_export.start(context, self.filepath)
+        preferences = context.user_preferences
+        addon_prefs = preferences.addons[__name__].preferences
+        brg_export.start(context, self.filepath, addon_prefs)
         return {'FINISHED'}
 
     def invoke(self, context, event):
