@@ -15,8 +15,8 @@ def start(context, file_path, addon_prefs):
 
     #create a basic mesh object
     mesh = bpy.data.meshes.new(file.nice_name)
-    object = bpy.data.objects.new(file.nice_name, mesh)
-    bpy.context.scene.objects.link(object)
+    mesh_obj = bpy.data.objects.new(file.nice_name, mesh)
+    bpy.context.scene.objects.link(mesh_obj)
 
     mid = 0
     #reading loop
@@ -25,14 +25,14 @@ def start(context, file_path, addon_prefs):
         print("\n######### Reading:", head,"#########")
 
         if head == "BANG": #Main file header
-            read_file_header(file,object)
+            read_file_header(file,mesh_obj)
         elif head == "ASET": #Animation definition
-            read_animation_header(file, object)
+            read_animation_header(file, mesh_obj)
         elif head == "MESI": #Mesh data
-            read_mesh(file,object,mid)
+            read_mesh(file,mesh_obj,mid)
             mid += 1
         elif head == "MTRL": #Material settings
-            read_materials(file,object)
+            read_materials(file,mesh_obj)
         else:
             break
 
@@ -40,14 +40,14 @@ def start(context, file_path, addon_prefs):
 
     #close the file reading
     file.close()
-    object.select = True
-    bpy.context.scene.objects.active = object
+    mesh_obj.select = True
+    bpy.context.scene.objects.active = mesh_obj
 
 
 
 
 
-def read_file_header(file,object):
+def read_file_header(file,mesh_obj):
     file.skip(4)
 
     #add basic materials
@@ -56,7 +56,7 @@ def read_file_header(file,object):
     for i in range(num_materials):
         mat = bpy.data.materials.new("Temp." + str(i) + ".Mtrl")
         mat.use_nodes = True
-        object.data.materials.append(mat)
+        mesh_obj.data.materials.append(mat)
 
     file.skip(4)
 
@@ -64,11 +64,11 @@ def read_file_header(file,object):
     num_shapekeys = file.read_uint()
     print("num_shapekeys:", num_shapekeys)
     if (num_shapekeys > 1):
-        object.shape_key_add("0")
-        object.data.shape_keys.use_relative = False
-        object.data.shape_keys.eval_time = 0
+        mesh_obj.shape_key_add("0")
+        mesh_obj.data.shape_keys.use_relative = False
+        mesh_obj.data.shape_keys.eval_time = 0
         # bpy.ops.object.shape_key_retime()
-        object.active_shape_key_index = 0
+        mesh_obj.active_shape_key_index = 0
 
     file.skip(8)
 
@@ -76,7 +76,7 @@ def read_file_header(file,object):
 
 
 
-def read_animation_header(file, object):
+def read_animation_header(file, mesh_obj):
     num_frames = file.read_uint()
     file.skip(4)
     animation_time = file.read_float()
@@ -92,16 +92,16 @@ def read_animation_header(file, object):
     scn.frame_current = 1
     scn.frame_start = 1
     scn.frame_end = math.floor(animation_time * scn.render.fps)
-    object.data.shape_keys.eval_time = 0;
-    object.data.shape_keys.keyframe_insert("eval_time", frame = 0)
-    object.data.shape_keys.eval_time = num_frames * 10;
-    object.data.shape_keys.keyframe_insert("eval_time", frame = animation_time * scn.render.fps)
+    mesh_obj.data.shape_keys.eval_time = 0;
+    mesh_obj.data.shape_keys.keyframe_insert("eval_time", frame = 0)
+    mesh_obj.data.shape_keys.eval_time = num_frames * 10;
+    mesh_obj.data.shape_keys.keyframe_insert("eval_time", frame = animation_time * scn.render.fps)
 
 
 
 
 
-def read_mesh(file,object,mid):
+def read_mesh(file,mesh_obj,mid):
     version = file.read_short() #2
     mformat = file.read_short() #2
     print("ID:",mid,"- version:", version, "format:", mformat)
@@ -124,21 +124,21 @@ def read_mesh(file,object,mid):
     mesh_pos = file.read_vec3_full() #12
 
     if not props.has(MeshFlags.NOTFIRST):
-        object.data.from_pydata(
+        mesh_obj.data.from_pydata(
              [(0.0,0.0,0.0) for x in range(num_vertices)],
              [],
              [(0,0,0) for x in range(num_faces)])
-        uvtex = object.data.uv_textures.new("UVMap")
+        uvtex = mesh_obj.data.uv_textures.new("UVMap")
     else:
-        object.shape_key_add(str(mid))
-        object.active_shape_key_index = mid
+        mesh_obj.shape_key_add(str(mid))
+        mesh_obj.active_shape_key_index = mid
 
 
     for x in range(num_vertices):
-        object.data.vertices[x].co = file.read_vec3()
+        mesh_obj.data.vertices[x].co = file.read_vec3()
 
     for x in range(num_vertices):
-        object.data.vertices[x].normal = file.read_vec3()
+        mesh_obj.data.vertices[x].normal = file.read_vec3()
 
     if not props.has(MeshFlags.NOTFIRST):
         uvs = []
@@ -146,15 +146,15 @@ def read_mesh(file,object,mid):
             uvs.append(file.read_vec2())
 
         for x in range(num_faces):
-            object.data.polygons[x].material_index = file.read_short()
+            mesh_obj.data.polygons[x].material_index = file.read_short()
 
         for x in range(num_faces):
-            object.data.polygons[x].vertices = file.read_face()
+            mesh_obj.data.polygons[x].vertices = file.read_face()
 
-        object.data.update(calc_edges=True, calc_tessface=True)
+        mesh_obj.data.update(calc_edges=True, calc_tessface=True)
 
-        uv_loops = object.data.uv_layers[-1].data
-        for loop in object.data.loops:
+        uv_loops = mesh_obj.data.uv_layers[-1].data
+        for loop in mesh_obj.data.loops:
             uv_loops[loop.index].uv = uvs[loop.vertex_index]
 
         if props.has(MeshFlags.MATERIALS):
@@ -162,7 +162,7 @@ def read_mesh(file,object,mid):
             for x in range(num_vertices):
                 vertmats.append(file.read_short())
     else:
-        object.data.update(calc_edges=True, calc_tessface=True)
+        mesh_obj.data.update(calc_edges=True, calc_tessface=True)
 
     file.skip(24)
     check_space = file.read_uint()
@@ -181,8 +181,8 @@ def read_mesh(file,object,mid):
             cols.append(file.read_color())
 
         mesh.vertex_colors.new('VertexColor')
-        col_loops = object.data.vertex_colors[0].data
-        for loop in object.data.loops:
+        col_loops = mesh_obj.data.vertex_colors[0].data
+        for loop in mesh_obj.data.loops:
             col_loops[loop.index].uv = cols[loop.vertex_index]
 
 
@@ -194,9 +194,9 @@ def read_mesh(file,object,mid):
         file.skip(2)
 
         if not props.has(MeshFlags.NOTFIRST):
-            bpy.ops.object.armature_add(enter_editmode=True,location=object.location)
+            bpy.ops.object.armature_add(enter_editmode=True,location=mesh_obj.location)
             arm_obj = bpy.context.object
-            arm_obj.parent = object
+            arm_obj.parent = mesh_obj
             arm_obj.name = file.nice_name + " Apoints"
             armature = arm_obj.data
             armature.name = file.nice_name + " Apoints"
@@ -218,7 +218,7 @@ def read_mesh(file,object,mid):
             for bone in arm_obj.pose.bones:
                 bone.custom_shape = shape
 
-        arm_obj = object.children[0]
+        arm_obj = mesh_obj.children[0]
         pose = arm_obj.pose
         for i in range(num_matrix*3):
             file.read_vec3(False)
@@ -249,17 +249,17 @@ def read_mesh(file,object,mid):
 
 
 
-def read_materials(file, object):
+def read_materials(file, mesh_obj):
 
-    index = next(index for index in object.data.materials.keys() if index.startswith('Temp.'))
-    mat = object.data.materials[index]
+    index = next(index for index in mesh_obj.data.materials.keys() if index.startswith('Temp.'))
+    mat = mesh_obj.data.materials[index]
 
     matid = file.read_uint()
     props = file.read_flag()
     mat.name = str(matid)
     print("Material id:",index, matid)
 
-    for face in object.data.polygons:
+    for face in mesh_obj.data.polygons:
         if face.material_index == matid:
             face.material_index = int(index.split('.')[1])
 
