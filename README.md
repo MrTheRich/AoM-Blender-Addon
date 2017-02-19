@@ -16,6 +16,7 @@ Installation
 Set-up Texture Autoload (optional)
 -------
 If you have Age of Empires Extended Edition, it's possible to auto load and convert textures.
+
 1. Navigate to `File` > `User Preferences` > `Add-ons`.
 2. Locate the add-on "Age of Mythology Model" in the `Import-Export` category.
 3. Unfold the panel of the Addon.
