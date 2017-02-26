@@ -20,7 +20,7 @@ bl_info = {
     "name": "Age of Mythology Model",
     "description": "Import/Export .brg model files for the game Age of Mythology",
     "author": "Matthijs 'MrEmjeR' de Rijk <mrtherich@gmail.com>",
-    "version": (0, 1, 1),
+    "version": (0, 2, 0),
     "blender": (2, 7, 5),
     "warning": "",
     "location": "File > Import-Export",
