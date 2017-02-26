@@ -41,6 +41,7 @@ from bpy_extras.io_utils import ExportHelper, ImportHelper
 from bpy.types import Operator, AddonPreferences
 from bpy.props import StringProperty, IntProperty, BoolProperty
 
+# addon preferences in blender user preferences
 class AoMPreferences(AddonPreferences):
     bl_idname = __name__
 
@@ -53,7 +54,7 @@ class AoMPreferences(AddonPreferences):
             default=True,
             )
     comp_path = StringProperty(
-            name="Path to TextureCompiler.exe. (v2)",
+            name="Path to TextureExtractor.exe. (v2)",
             subtype='FILE_PATH',
             )
     glob_tex = BoolProperty(
@@ -87,15 +88,53 @@ class IMPORT_BRG(bpy.types.Operator, ImportHelper):
         description="Filepath used for importing the brg file",
         maxlen=1024, default="")
 
+    modify_fps = BoolProperty(
+            name="Modify frame settings",
+            default=False,
+            )
+    cyclic = BoolProperty(
+            name="Cyclic animation",
+            default=True,
+            )
+
     def execute(self, context):
         preferences = context.user_preferences
         addon_prefs = preferences.addons[__name__].preferences
-        brg_import.start(context, self.filepath, addon_prefs)
+        importer = brg_import.BRGImporter(context, self, addon_prefs)
+
+        frame_id = 0 # id for the frame numbers needed for animated objects
+        # scan for headers,
+        # when one is found, read all the data for the header
+        # and scan for the next
+        head = importer.read_section_head()
+        while head: # reading loop
+            print("\n######### Reading:", head,"#########")
+
+            if head == "BANG": #Main file header
+                importer.read_file_header()
+            elif head == "ASET": #Animation definition
+                importer.read_animation_header()
+            elif head == "MESI": #Mesh data
+                importer.read_mesh(frame_id)
+                frame_id += 1
+            elif head == "MTRL": #Material settings
+                importer.read_materials()
+            else:
+                break
+
+            head = importer.read_section_head()
+        importer.finish_import()
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "modify_fps")
+        layout.prop(self, "cyclic")
 
 #export function
 class EXPORT_BRG(bpy.types.Operator, ExportHelper):
@@ -113,7 +152,30 @@ class EXPORT_BRG(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         preferences = context.user_preferences
         addon_prefs = preferences.addons[__name__].preferences
-        brg_export.start(context, self.filepath, addon_prefs)
+        exporter = brg_export.BRGExporter(context, self, addon_prefs)
+
+        frame_id = 0 # id for the frame numbers needed for animated objects
+        # scan for headers,
+        # when one is found, read all the data for the header
+        # and scan for the next
+        section_heads = exporter.get_section_heads()
+        for head in section_heads: # reading loop
+            print("\n######### Reading:", head,"#########")
+            exporter.write_section_head(head)
+
+            if head == "BANG": #Main file header
+                if not exporter.write_file_header():
+                    return {'FINISHED'}
+            elif head == "ASET": #Animation definition
+                exporter.write_animation_header()
+            elif head == "MESI": #Mesh data
+                exporter.write_mesh(frame_id)
+                frame_id += 1
+            elif head == "MTRL": #Material settings
+                exporter.write_materials()
+
+        exporter.finish_export()
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -130,7 +192,7 @@ def menu_func_export(self, context):
 def register():
     bpy.utils.register_module(__name__)
     reload_scripts()
-    os.system('cls')
+    os.system('cls') # clear the cmd, temponary for debug
     bpy.types.INFO_MT_file_import.append(menu_func_import)
     bpy.types.INFO_MT_file_export.append(menu_func_export)
 
@@ -139,7 +201,7 @@ def unregister():
     bpy.types.INFO_MT_file_import.remove(menu_func_import)
     bpy.types.INFO_MT_file_export.remove(menu_func_export)
 
-def reload_scripts():
+def reload_scripts(): # reload all subscripts when reloading main script
     reload(brg_util)
     reload(brg_import)
     reload(brg_export)
