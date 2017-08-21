@@ -1,7 +1,7 @@
 Age of Mythology Blender Add-on
 ======
 
-Blender import/export script for Age of Mythology model files of the .brg format.
+Blender import/export script for Age of Mythology model files of the .brg format. **Currently the import option is the only working part of the script. The export is not yet implemented and will give an error**
 
 Installation
 -------
